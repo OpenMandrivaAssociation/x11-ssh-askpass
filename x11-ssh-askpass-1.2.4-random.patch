@@ -1,0 +1,262 @@
+2005-12-27  Enrico Scholz <enrico.scholz@informatik.tu-chemnitz.de>
+
+	- added code to randomize the amount of shown ticks per
+	  password character. The new code is a little bit dirty and
+	  not well-designed.
+
+	- dynlist.c: do not 'realloc(3)'; it may leak passwords into
+	  free'd memory. Instead of, do a malloc-memcpy-memset-free
+	  sequence.
+
+--- x11-ssh-askpass-1.2.4.1/dynlist.c.random	2001-09-17 09:42:50.000000000 +0200
++++ x11-ssh-askpass-1.2.4.1/dynlist.c	2005-12-27 01:23:54.000000000 +0100
+@@ -24,6 +24,7 @@
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ 
+ #include "dynlist.h"
+ 
+@@ -54,29 +55,50 @@
+    return(APPEND_SUCCESS);
+ }
+ 
++static void *
++Xrealloc(void *orig, size_t sz, size_t old_sz)
++{
++  void *	tmp = malloc(sz);
++  if (tmp!=0 && old_sz>0) {
++    memcpy(tmp, orig, old_sz);
++    memset(orig, 0, old_sz);
++    __asm__ __volatile__("" : : : "memory");
++    free(orig);
++  }
++
++  return tmp;
++}
++
+ /* For single-dimensional buffers. */
+-int append_to_buf(char **buf, int *buflen, int *i, int c)
++int append_to_buf(char **buf, unsigned char **buf_rnd, int *buflen, int *i, int c, unsigned char rnd)
+ {
+    char *tmp_buf;
+    
+    if (*i >= *buflen)
+     {
++       size_t old_len = *buflen;
+        *buflen += BUF_CHUNK_SIZE;
+-       if (NULL == *buf) {
+-	  tmp_buf = malloc(sizeof(**buf) * *buflen);
+-       } else {
+-	  tmp_buf = realloc(*buf, (sizeof(**buf) * *buflen));
+-       }
++       tmp_buf  = Xrealloc(*buf, sizeof(**buf) * *buflen, sizeof(**buf) * old_len);
+        if (NULL == tmp_buf)
+ 	{
+ 	   return(APPEND_FAILURE);
+ 	}
+        *buf = tmp_buf;
++
++       tmp_buf  = Xrealloc(*buf_rnd,
++			   sizeof(**buf_rnd) * *buflen,
++			   sizeof(**buf_rnd) * old_len);
++       if (NULL == tmp_buf)
++        {
++          return(APPEND_FAILURE);
++        }
++       *buf_rnd = tmp_buf;
+ #ifdef DEBUG
+        printf("-->Allocated buffer of size %d\n", *buflen);
+ #endif /* DEBUG */
+     }
+-   (*buf)[*i] = (char) c;
++   (*buf)[*i]     = (char) c;
++   (*buf_rnd)[*i] = rnd;
+    (*i)++;
+    return(APPEND_SUCCESS);
+ }
+--- x11-ssh-askpass-1.2.4.1/dynlist.h.random	2001-09-17 09:42:50.000000000 +0200
++++ x11-ssh-askpass-1.2.4.1/dynlist.h	2005-12-27 01:23:25.000000000 +0100
+@@ -29,6 +29,6 @@
+ #define APPEND_FAILURE	0
+ 
+ int append_to_list(char ***list_ptr, int *list_len, int *i, char *item);
+-int append_to_buf(char **buf, int *buflen, int *i, int c);
++int append_to_buf(char **buf, unsigned char **buf_rnd, int *buflen, int *i, int c, unsigned char rnd);
+ 
+ #endif /* H_DYNLIST */
+--- x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.c.random	2001-09-17 09:42:50.000000000 +0200
++++ x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.c	2005-12-27 01:23:25.000000000 +0100
+@@ -400,6 +400,9 @@
+       getResolutionResource(app, "xResolutionFuzz", "XResolutionFuzz", "20/in");
+    app->yFuzz =
+       getResolutionResource(app, "yResolutionFuzz", "YResolutionFuzz", "20/in");
++
++   app->randCount =
++      getUnsignedIntegerResource(app, "randCount", "RandCount", 2)+1;
+    
+    d->title =
+       getStringResourceWithDefault("dialog.title", "Dialog.Title",
+@@ -1008,21 +1011,25 @@
+    DialogInfo *d = app->dialog;
+    
+    if (condition > 0) {
+-      /* Move forward one. */
+-      updateIndicatorElement(app, d->indicator.current);
+-      if (d->indicator.current < (d->indicator.count - 1)) {
+-	 (d->indicator.current)++;
+-      } else {
+-	 d->indicator.current = 0;
++      for (;condition>0;--condition) {
++	/* Move forward one. */
++	updateIndicatorElement(app, d->indicator.current);
++	if (d->indicator.current < (d->indicator.count - 1)) {
++	  (d->indicator.current)++;
++	} else {
++	   d->indicator.current = 0;
++        }
+       }
+    } else if (condition < 0) {
+-      /* Move backward one. */
+-      if (d->indicator.current > 0) {
+-	 (d->indicator.current)--;
+-      } else {
+-	 d->indicator.current = d->indicator.count - 1;
++      for (;condition<0;++condition) {
++        /* Move backward one. */
++        if (d->indicator.current > 0) {
++          (d->indicator.current)--;
++        } else {
++   	 d->indicator.current = d->indicator.count - 1;
++        }
++        updateIndicatorElement(app, d->indicator.current);
+       }
+-      updateIndicatorElement(app, d->indicator.current);
+    } else {
+       /* Erase them all. */
+       int i;
+@@ -1200,9 +1207,12 @@
+    destroyGCs(app);
+    destroyDialog(app);
+    if (app->buf) {
+-      memset(app->buf, 0, app->bufSize);
++      memset(app->buf,     0, app->bufSize);
++      memset(app->buf_rnd, 0, app->bufSize);
++      __asm__ __volatile__("" : : : "memory");
+    }
+    freeIf(app->buf);
++   freeIf(app->buf_rnd);
+    ungrabPointer(app);
+    ungrabKeyboard(app);
+    ungrabServer(app);
+@@ -1216,8 +1225,9 @@
+ 
+ void acceptAction(AppInfo *app)
+ {
+-   int status = append_to_buf(&(app->buf), &(app->bufSize),
+-			      &(app->bufIndex), '\0');
++   int status = append_to_buf(&(app->buf), &(app->buf_rnd),
++			      &(app->bufSize), &(app->bufIndex), 
++			      '\0', 0);
+    if (APPEND_FAILURE == status) {
+       cleanUp(app);
+       outOfMemory(app, __LINE__);
+@@ -1239,7 +1249,7 @@
+       return;
+    }
+    (app->bufIndex)--;
+-   updateIndicators(app, -1);
++   updateIndicators(app, -app->buf_rnd[app->bufIndex]);
+ }
+ 
+ void erasePassphrase(AppInfo *app)
+@@ -1254,13 +1264,15 @@
+ 
+ void addToPassphrase(AppInfo *app, char c)
+ {
+-   int status = append_to_buf(&(app->buf), &(app->bufSize),
+-			      &(app->bufIndex), c);
++   unsigned int r = rand()%app->randCount + 1;
++   int     status = append_to_buf(&(app->buf), &(app->buf_rnd), 
++		   		  &(app->bufSize), &(app->bufIndex), 
++			      	  c, r);
+    if (APPEND_FAILURE == status) {
+       cleanUp(app);
+       outOfMemory(app, __LINE__);
+    }
+-   updateIndicators(app, 1);
++   updateIndicators(app, r);
+ }
+ 
+ void handleKeyPress(AppInfo *app, XEvent *event)
+@@ -1433,11 +1445,27 @@
+    }
+ }
+ 
++static void
++initRandom()
++{
++   int fd=open("/dev/urandom", O_RDONLY);
++   unsigned int	seed;
++
++   if (fd!=-1) {
++     read(fd, &seed, sizeof seed);
++     close(fd);
++   }
++
++   seed += time(0);
++   srand(seed);
++}
++
+ int main(int argc, char **argv)
+ {
+    AppInfo app;
+    XEvent event;
+ 
++   initRandom();
+    memset(&app, 0, sizeof(app));
+    
+    progclass = "SshAskpass";
+--- x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.h.random	2001-09-17 09:42:50.000000000 +0200
++++ x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.h	2005-12-27 01:23:25.000000000 +0100
+@@ -152,6 +152,7 @@
+    pid_t pid;
+    
+    char *buf;
++   unsigned char *buf_rnd;
+    int bufSize;
+    int bufIndex;
+ 
+@@ -196,6 +197,8 @@
+    unsigned long inputTimeout;
+    XtIntervalId inputTimeoutTimerId;
+    Bool inputTimeoutActive;
++
++   unsigned char randCount;
+    
+    DialogInfo *dialog;
+ } AppInfo;
+--- x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.man.in.random	2001-09-17 09:42:50.000000000 +0200
++++ x11-ssh-askpass-1.2.4.1/x11-ssh-askpass.man.in	2005-12-27 01:23:25.000000000 +0100
+@@ -1,4 +1,4 @@
+-.\" x11-ssh-askpass.man
++.\" x11-ssh-askpass.man -*- nroff -*-
+ .\" Created by Matthieu Herrb <matthieu@laas.fr> for OpenBSD
+ .\" Modified by Jim Knoble <jmknoble@pobox.com> for non-OpenBSD
+ .\"   distribution
+@@ -219,6 +219,14 @@
+ .Dq 20/in
+ (20 pixels per inch).
+ .El
++.It Cm randCount ( No class Cm RandCount )
++.Bl -inset -compact
++.It specifies the maximum amount of additional, random units which can
++be generated per password character. A non-zero value helps to hide
++the length of the typed passphrase.
++.It Default value:
++.Dq 2 .
++.El
+ .El
+ .Pp
+ The following resources are recognized by the Dialog widget:
