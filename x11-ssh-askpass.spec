@@ -7,8 +7,8 @@ Version:	1.2.4
 Release:	%mkrel 1
 License:	Public Domain
 Group:		Networking/Remote access
-URL:		http://www.ntrnet.net/~jmknoble/software/x11-ssh-askpass/
-Source0:	http://www.ntrnet.net/~jmknoble/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.bz2
+URL:		http://www.jmknoble.net/software/x11-ssh-askpass/
+Source0:	http://www.jmknoble.net/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.bz2
 Patch0:		x11-ssh-askpass-1.2.4-random.patch
 BuildRequires:	imake
 BuildRequires:	rman
@@ -22,7 +22,6 @@ Requires: 	openssh-askpass-common
 Obsoletes:	ssh-extras, ssh-askpass
 Provides:	ssh-extras, ssh-askpass = 5.9p1
 Requires(pre):	update-alternatives
-BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %description
 This package contains Jim Knoble's X11 passphrase dialog.
@@ -67,8 +66,6 @@ rman -f HTML < x11-ssh-askpass._man > x11-ssh-askpass.1x-html && \
 mv -f x11-ssh-askpass.1x-html x11-ssh-askpass.1.html
 
 %install
-rm -rf %{buildroot}
-
 install -d %{buildroot}%{_libdir}/ssh
 make DESTDIR=%{buildroot} install
 make DESTDIR=%{buildroot} install.man
@@ -80,7 +77,7 @@ install -m0644 x11-ssh-askpass.man %{buildroot}%{_mandir}/man1/x11-ssh-askpass.1
 
 # cleanup
 rm -f %{buildroot}%{_libdir}/ssh/ssh-askpass
-rm -f %{buildroot}%{_mandir}/man1//ssh-askpass.1x*
+rm -f %{buildroot}%{_mandir}/man1/ssh-askpass.1x*
 
 %post
 update-alternatives --install %{_libdir}/ssh/ssh-askpass ssh-askpass %{_libdir}/ssh/x11-ssh-askpass 10
@@ -91,13 +88,16 @@ update-alternatives --install %{_bindir}/ssh-askpass bssh-askpass %{_libdir}/ssh
 update-alternatives --remove ssh-askpass %{_libdir}/ssh/x11-ssh-askpass
 update-alternatives --remove bssh-askpass %{_libdir}/ssh/x11-ssh-askpass
 
-%clean
-rm -rf %{buildroot}
-
 %files
-%defattr(-,root,root)
 %doc README ChangeLog SshAskpass*.ad x11-ssh-askpass.1.html
 %{_libdir}/ssh/x11-ssh-askpass
 %{_sysconfdir}/X11/app-defaults/SshAskpass
 %{_mandir}/man1/x11-ssh-askpass.1*
+
+
+
+%changelog
+* Tue Sep 06 2011 Oden Eriksson <oeriksson@mandriva.com> 1.2.4-1mdv2012.0
++ Revision: 698453
+- import x11-ssh-askpass
 
