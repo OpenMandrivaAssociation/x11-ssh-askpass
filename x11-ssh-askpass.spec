@@ -15,8 +15,8 @@ BuildRequires:	rman
 # http://qa.mandriva.com/show_bug.cgi?id=22736
 BuildRequires:	x11-util-cf-files >= 1.0.2
 BuildRequires:	gccmakedep
-BuildRequires:	libx11-devel
-BuildRequires:	libxt-devel
+BuildRequires:	pkgconfig(x11)
+BuildRequires:	pkgconfig(xt)
 Requires:	openssh
 Requires: 	openssh-askpass-common
 Obsoletes:	ssh-extras, ssh-askpass
