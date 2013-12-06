@@ -4,7 +4,7 @@
 Summary:	OpenSSH X11 passphrase dialog
 Name:		x11-ssh-askpass
 Version:	1.2.4
-Release:	5
+Release:	6
 License:	Public Domain
 Group:		Networking/Remote access
 URL:		http://www.jmknoble.net/software/x11-ssh-askpass/
