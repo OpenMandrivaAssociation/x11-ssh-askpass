@@ -15,6 +15,7 @@ BuildRequires:	rman
 # http://qa.mandriva.com/show_bug.cgi?id=22736
 BuildRequires:	x11-util-cf-files >= 1.0.2
 BuildRequires:	gccmakedep
+BuildRequires:	makedepend
 BuildRequires:	pkgconfig(x11)
 BuildRequires:	pkgconfig(xt)
 Requires:	openssh
@@ -34,7 +35,7 @@ This package contains Jim Knoble's X11 passphrase dialog.
 %build
 %serverbuild
 
-%configure2_5x \
+%configure \
     --prefix=%{_prefix} \
     --libdir=%{_libdir} \
     --mandir=%{_mandir} \
