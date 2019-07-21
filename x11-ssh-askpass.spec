@@ -1,14 +1,11 @@
-# Version of ssh-askpass
-%define aversion 1.2.4.1
-
 Summary:	OpenSSH X11 passphrase dialog
 Name:		x11-ssh-askpass
-Version:	1.2.4
-Release:	11
+Version:	1.2.4.1
+Release:	1
 License:	Public Domain
 Group:		Networking/Remote access
 URL:		http://www.jmknoble.net/software/x11-ssh-askpass/
-Source0:	http://www.jmknoble.net/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.bz2
+Source0:	https://github.com/sigmavirus24/x11-ssh-askpass/archive/%{version}.tar.gz
 Patch0:		x11-ssh-askpass-1.2.4-random.patch
 BuildRequires:	imake
 BuildRequires:	rman
@@ -29,7 +26,7 @@ This package contains Jim Knoble's X11 passphrase dialog.
 
 %prep
 
-%setup -q -n x11-ssh-askpass-%{aversion}
+%setup -q -n x11-ssh-askpass-%{version}
 %patch0 -p1 -b .random
 
 %build
