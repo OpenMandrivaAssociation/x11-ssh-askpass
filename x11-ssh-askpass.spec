@@ -4,7 +4,7 @@ Version:	1.2.4.1
 Release:	2
 License:	Public Domain
 Group:		Networking/Remote access
-URL:		http://www.jmknoble.net/software/x11-ssh-askpass/
+URL:		https://www.jmknoble.net/software/x11-ssh-askpass/
 Source0:	https://github.com/sigmavirus24/x11-ssh-askpass/archive/%{version}.tar.gz
 Patch0:		x11-ssh-askpass-1.2.4-random.patch
 BuildRequires:	imake
